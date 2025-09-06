@@ -17,19 +17,13 @@
         .card:hover {
             transform: translateY(-5px);
         }
-        /* Estilo do spinner de carregamento */
         .loader {
             border: 4px solid #f3f3f3;
             border-radius: 50%;
             border-top: 4px solid #3498db;
             width: 40px;
             height: 40px;
-            -webkit-animation: spin 2s linear infinite; /* Safari */
             animation: spin 2s linear infinite;
-        }
-        @-webkit-keyframes spin {
-            0% { -webkit-transform: rotate(0deg); }
-            100% { -webkit-transform: rotate(360deg); }
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -53,14 +47,14 @@
                 Consultar Processos
             </button>
              <div class="mt-4 text-center text-xs text-yellow-400 bg-yellow-900/30 p-3 rounded-lg">
-                <strong>Atenção:</strong> Esta é uma demonstração. A consulta não acessa o site do TJAL em tempo real, mas utiliza dados de exemplo para simular o resultado. A implementação real requer uma solução de back-end para lidar com CAPTCHAs e outras proteções.
+                <strong>Atenção:</strong> Esta ferramenta realiza consultas públicas no site do TJAL. O uso indevido ou excessivo pode sobrecarregar o sistema do tribunal. Use com responsabilidade.
             </div>
         </div>
 
         <section id="results" class="mt-10 max-w-5xl mx-auto">
             <div id="loader" class="hidden justify-center items-center flex-col">
                 <div class="loader"></div>
-                <p class="mt-4 text-gray-400">Consultando... Isso pode levar alguns segundos.</p>
+                <p class="mt-4 text-gray-400">Consultando em tempo real... Isso pode demorar.</p>
             </div>
             <!-- Os resultados da consulta serão inseridos aqui -->
         </section>
@@ -86,19 +80,24 @@
             consultarBtn.disabled = true;
             consultarBtn.textContent = 'Consultando...';
 
-            const promises = cpfs.map(cpf => fetchProcessData(cpf));
-
-            Promise.all(promises).then(allResults => {
+            // Usamos Promise.allSettled para que, mesmo que um CPF dê erro, os outros continuem.
+            Promise.allSettled(cpfs.map(cpf => fetchProcessData(cpf))).then(results => {
                 loader.style.display = 'none';
                 consultarBtn.disabled = false;
                 consultarBtn.textContent = 'Consultar Processos';
-                displayResults(allResults);
+
+                const successfulResults = results
+                    .filter(result => result.status === 'fulfilled')
+                    .map(result => result.value);
+
+                displayResults(successfulResults);
             });
         }
 
         function displayResults(allResults) {
+            // (O restante desta função permanece exatamente o mesmo do protótipo anterior)
             if (allResults.length === 0) {
-                resultsDiv.innerHTML = `<p class="text-center text-gray-400">Nenhum CPF válido para consulta.</p>`;
+                resultsDiv.innerHTML = `<p class="text-center text-gray-400">Nenhum CPF válido para consulta ou todas as consultas falharam.</p>`;
                 return;
             }
             
@@ -109,7 +108,7 @@
                 let content = `<h2 class="text-2xl font-bold mb-4 text-white">CPF: ${result.cpf}</h2>`;
                 
                 if (result.error) {
-                    content += `<p class="text-red-400">${result.error}</p>`;
+                    content += `<p class="text-red-400"><strong>Erro:</strong> ${result.error}</p>`;
                 } else if (!result.revisional && result.buscaApreensao.length === 0) {
                      content += `<p class="text-gray-400">Nenhum processo de Alienação Fiduciária encontrado para este CPF.</p>`;
                 } else {
@@ -117,6 +116,7 @@
                         content += `
                             <div class="mb-5 border-l-4 border-green-500 pl-4">
                                 <h3 class="text-lg font-semibold text-green-400">Ação Revisional Encontrada</h3>
+                                <p class="text-gray-300"><strong>Processo:</strong> ${result.revisional.numero}</p>
                                 <p class="text-gray-300"><strong>Tipo:</strong> ${result.revisional.tipo}</p>
                                 <p class="text-gray-300"><strong>Vara:</strong> ${result.revisional.vara}</p>
                                 <p class="text-gray-300"><strong>Protocolo:</strong> ${result.revisional.protocolo}</p>
@@ -131,15 +131,16 @@
 
                              content += `
                                 <div class="mb-4 border-l-4 ${ba.mandado ? 'border-red-500' : 'border-yellow-500'} pl-4 py-2 bg-gray-900/50 rounded-r-lg">
+                                    <p class="text-gray-300"><strong>Processo:</strong> ${ba.numero}</p>
                                     <p class="text-gray-300"><strong>Vara:</strong> ${ba.vara}</p>
                                     <p class="text-gray-300"><strong>Protocolo:</strong> ${ba.protocolo} <span class="text-xs font-medium text-gray-400">${isPosterior ? '(Posterior à Revisional)' : ''}</span></p>
                                     <div class="mt-2 text-sm font-semibold p-2 rounded-md ${ba.mandado ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}">
-                                        ${ba.mandado ? '🚨 Mandado de Busca e Apreensão em aberto ou expedido!' : '✅ Sem mandado de busca em aberto.'}
+                                        ${ba.mandado ? '🚨 Alerta: Mandado de Busca e Apreensão identificado!' : '✅ Sem indicativo de mandado de busca em aberto.'}
                                     </div>
                                 </div>
                              `;
                          });
-                    } else {
+                    } else if (result.revisional) { // Apenas mostra se já achou uma revisional
                         content += `
                             <div class="border-l-4 border-blue-500 pl-4">
                                 <h3 class="text-lg font-semibold text-blue-400">Nenhuma ação de Busca e Apreensão encontrada.</h3>
@@ -153,50 +154,33 @@
             });
         }
 
-        // --- SIMULAÇÃO DE CONSULTA ---
-        // Em uma aplicação real, esta função faria uma chamada a um servidor (back-end)
-        // que realizaria o web scraping no site do TJAL.
-        function fetchProcessData(cpf) {
-            return new Promise(resolve => {
-                setTimeout(() => {
-                    // Dados Fictícios para Demonstração
-                    const mockData = {
-                        "000.000.000-00": {
-                            cpf: "000.000.000-00",
-                            revisional: { tipo: "Procedimento Comum Cível - Alienação Fiduciária", vara: "10ª Vara Cível da Capital", protocolo: "15/03/2024" },
-                            buscaApreensao: [
-                                { vara: "3ª Vara Cível da Capital", protocolo: "28/04/2024", mandado: true }
-                            ]
-                        },
-                        "111.111.111-11": {
-                            cpf: "111.111.111-11",
-                            revisional: { tipo: "Procedimento Comum Cível - Alienação Fiduciária", vara: "5ª Vara Cível da Capital", protocolo: "20/01/2024" },
-                            buscaApreensao: [
-                                { vara: "1ª Vara Cível da Capital", protocolo: "10/02/2024", mandado: false },
-                                { vara: "1ª Vara Cível da Capital", protocolo: "15/05/2024", mandado: true }
-                            ]
-                        },
-                        "222.222.222-22": {
-                            cpf: "222.222.222-22",
-                            revisional: { tipo: "Procedimento Comum Cível - Alienação Fiduciária", vara: "Vara do Único Ofício de Coruripe", protocolo: "05/02/2024" },
-                            buscaApreensao: []
-                        },
-                         "333.333.333-33": {
-                            cpf: "333.333.333-33",
-                            revisional: null,
-                            buscaApreensao: []
-                        }
-                    };
-                    
-                    if (mockData[cpf]) {
-                        resolve(mockData[cpf]);
-                    } else {
-                        resolve({ cpf: cpf, error: "CPF não encontrado na base de dados de simulação." });
-                    }
+        // --- CONSULTA REAL AO VIVO ---
+        async function fetchProcessData(cpf) {
+            // Esta função agora chama nosso servidor intermediário (back-end)
+            try {
+                const response = await fetch('http://localhost:3000/consultar-cpf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ cpf: cpf }),
+                });
 
-                }, 1000 + Math.random() * 1500); // Simula o tempo de resposta da rede
-            });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Falha na comunicação com o servidor.');
+                }
+                
+                const data = await response.json();
+                return data;
+
+            } catch (error) {
+                console.error('Erro ao consultar CPF:', cpf, error);
+                // Retornamos um objeto de erro para ser exibido na tela
+                return { cpf: cpf, error: error.message };
+            }
         }
     </script>
 </body>
 </html>
+
