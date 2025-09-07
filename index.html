@@ -3,183 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consulta Automatizada de Processos - TJAL</title>
+    <title>Automação de Consulta Processual - TJAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
         }
-        .card {
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            transition: transform 0.2s ease-in-out;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-        }
         .loader {
-            border: 4px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 4px solid #3498db;
-            width: 40px;
-            height: 40px;
-            animation: spin 2s linear infinite;
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <main class="container mx-auto p-4 md:p-8">
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-2">Consulta Automatizada de Processos</h1>
-            <p class="text-lg text-gray-400">Tribunal de Justiça do Estado de Alagoas (TJAL)</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-600">Consulta Automatizada de Processos</h1>
+            <p class="text-gray-600 mt-2">Tribunal de Justiça de Alagoas (TJAL) - 1º Grau</p>
         </header>
 
-        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg max-w-3xl mx-auto">
+        <main class="bg-white p-6 md:p-8 rounded-2xl shadow-lg">
             <div class="mb-6">
-                <label for="cpfs" class="block mb-2 text-sm font-medium text-gray-300">Insira os CPFs dos clientes (um por linha):</label>
-                <textarea id="cpfs" rows="8" class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="000.000.000-00&#10;111.111.111-11&#10;222.222.222-22"></textarea>
+                <label for="cpfs" class="block text-lg font-semibold mb-2 text-gray-700">Insira os CPFs (um por linha):</label>
+                <textarea id="cpfs" rows="8" class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" placeholder="000.000.000-00&#10;111.111.111-11&#10;..."></textarea>
             </div>
-            <button id="consultarBtn" class="w-full bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-3 text-center transition-colors duration-300">
+            
+            <button id="consultarBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-transform transform hover:scale-105 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
                 Consultar Processos
             </button>
-             <div class="mt-4 text-center text-xs text-yellow-400 bg-yellow-900/30 p-3 rounded-lg">
-                <strong>Atenção:</strong> Esta ferramenta realiza consultas públicas no site do TJAL. O uso indevido ou excessivo pode sobrecarregar o sistema do tribunal. Use com responsabilidade.
-            </div>
-        </div>
 
-        <section id="results" class="mt-10 max-w-5xl mx-auto">
-            <div id="loader" class="hidden justify-center items-center flex-col">
-                <div class="loader"></div>
-                <p class="mt-4 text-gray-400">Consultando em tempo real... Isso pode demorar.</p>
-            </div>
-            <!-- Os resultados da consulta serão inseridos aqui -->
-        </section>
-    </main>
+            <div id="status" class="mt-6 text-center text-gray-600"></div>
+        </main>
+
+        <section id="results" class="mt-8 space-y-6"></section>
+
+    </div>
 
     <script>
         const consultarBtn = document.getElementById('consultarBtn');
         const cpfsTextarea = document.getElementById('cpfs');
         const resultsDiv = document.getElementById('results');
-        const loader = document.getElementById('loader');
+        const statusDiv = document.getElementById('status');
 
-        consultarBtn.addEventListener('click', handleConsult);
-
-        function handleConsult() {
-            const cpfs = cpfsTextarea.value.split('\n').map(cpf => cpf.trim()).filter(cpf => cpf);
+        consultarBtn.addEventListener('click', async () => {
+            const cpfs = cpfsTextarea.value.trim().split('\n').filter(cpf => cpf.length > 0);
             if (cpfs.length === 0) {
-                resultsDiv.innerHTML = `<p class="text-center text-yellow-400">Por favor, insira pelo menos um CPF.</p>`;
+                statusDiv.innerHTML = `<p class="text-red-500 font-semibold">Por favor, insira pelo menos um CPF.</p>`;
                 return;
             }
 
             resultsDiv.innerHTML = '';
-            loader.style.display = 'flex';
             consultarBtn.disabled = true;
-            consultarBtn.textContent = 'Consultando...';
+            consultarBtn.innerHTML = `<div class="loader w-6 h-6 border-4 border-t-4 border-gray-200 rounded-full"></div><span class="ml-3">Consultando...</span>`;
 
-            // Usamos Promise.allSettled para que, mesmo que um CPF dê erro, os outros continuem.
-            Promise.allSettled(cpfs.map(cpf => fetchProcessData(cpf))).then(results => {
-                loader.style.display = 'none';
-                consultarBtn.disabled = false;
-                consultarBtn.textContent = 'Consultar Processos';
+            let totalConsultas = cpfs.length;
+            let consultasFeitas = 0;
 
-                const successfulResults = results
-                    .filter(result => result.status === 'fulfilled')
-                    .map(result => result.value);
-
-                displayResults(successfulResults);
-            });
-        }
-
-        function displayResults(allResults) {
-            // (O restante desta função permanece exatamente o mesmo do protótipo anterior)
-            if (allResults.length === 0) {
-                resultsDiv.innerHTML = `<p class="text-center text-gray-400">Nenhum CPF válido para consulta ou todas as consultas falharam.</p>`;
-                return;
-            }
-            
-            allResults.forEach(result => {
-                const card = document.createElement('div');
-                card.className = 'card bg-gray-800 p-6 rounded-2xl mb-6';
-                
-                let content = `<h2 class="text-2xl font-bold mb-4 text-white">CPF: ${result.cpf}</h2>`;
-                
-                if (result.error) {
-                    content += `<p class="text-red-400"><strong>Erro:</strong> ${result.error}</p>`;
-                } else if (!result.revisional && result.buscaApreensao.length === 0) {
-                     content += `<p class="text-gray-400">Nenhum processo de Alienação Fiduciária encontrado para este CPF.</p>`;
-                } else {
-                    if (result.revisional) {
-                        content += `
-                            <div class="mb-5 border-l-4 border-green-500 pl-4">
-                                <h3 class="text-lg font-semibold text-green-400">Ação Revisional Encontrada</h3>
-                                <p class="text-gray-300"><strong>Processo:</strong> ${result.revisional.numero}</p>
-                                <p class="text-gray-300"><strong>Tipo:</strong> ${result.revisional.tipo}</p>
-                                <p class="text-gray-300"><strong>Vara:</strong> ${result.revisional.vara}</p>
-                                <p class="text-gray-300"><strong>Protocolo:</strong> ${result.revisional.protocolo}</p>
-                            </div>
-                        `;
-                    }
-
-                    if (result.buscaApreensao.length > 0) {
-                         content += `<h3 class="text-lg font-semibold text-yellow-400 mb-3">Ações de Busca e Apreensão (${result.buscaApreensao.length})</h3>`;
-                         result.buscaApreensao.forEach(ba => {
-                             const isPosterior = result.revisional ? new Date(ba.protocolo.split('/').reverse().join('-')) > new Date(result.revisional.protocolo.split('/').reverse().join('-')) : false;
-
-                             content += `
-                                <div class="mb-4 border-l-4 ${ba.mandado ? 'border-red-500' : 'border-yellow-500'} pl-4 py-2 bg-gray-900/50 rounded-r-lg">
-                                    <p class="text-gray-300"><strong>Processo:</strong> ${ba.numero}</p>
-                                    <p class="text-gray-300"><strong>Vara:</strong> ${ba.vara}</p>
-                                    <p class="text-gray-300"><strong>Protocolo:</strong> ${ba.protocolo} <span class="text-xs font-medium text-gray-400">${isPosterior ? '(Posterior à Revisional)' : ''}</span></p>
-                                    <div class="mt-2 text-sm font-semibold p-2 rounded-md ${ba.mandado ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}">
-                                        ${ba.mandado ? '🚨 Alerta: Mandado de Busca e Apreensão identificado!' : '✅ Sem indicativo de mandado de busca em aberto.'}
-                                    </div>
-                                </div>
-                             `;
-                         });
-                    } else if (result.revisional) { // Apenas mostra se já achou uma revisional
-                        content += `
-                            <div class="border-l-4 border-blue-500 pl-4">
-                                <h3 class="text-lg font-semibold text-blue-400">Nenhuma ação de Busca e Apreensão encontrada.</h3>
-                            </div>
-                        `;
-                    }
+            for (const cpf of cpfs) {
+                consultasFeitas++;
+                statusDiv.innerHTML = `<p class="text-blue-600 font-medium">Consultando ${consultasFeitas} de ${totalConsultas}: ${cpf}</p>`;
+                try {
+                    const data = await fetchProcessData(cpf);
+                    displayResult(data);
+                } catch (error) {
+                    console.error('Erro na consulta para o CPF:', cpf, error);
+                    displayError(cpf, error.message);
                 }
-                
-                card.innerHTML = content;
-                resultsDiv.appendChild(card);
-            });
-        }
+            }
 
-        // --- CONSULTA REAL AO VIVO ---
+            consultarBtn.disabled = false;
+            consultarBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Consultar Processos`;
+            statusDiv.innerHTML = `<p class="text-green-600 font-bold">Consulta finalizada para ${totalConsultas} CPF(s).</p>`;
+        });
+
         async function fetchProcessData(cpf) {
-            // Esta função agora chama nosso servidor intermediário (back-end)
-            try {
-                const response = await fetch('http://localhost:3000/consultar-cpf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ cpf: cpf }),
-                });
+            const response = await fetch('http://localhost:3000/consultar-cpf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cpf: cpf.trim() })
+            });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Falha na comunicação com o servidor.');
-                }
-                
-                const data = await response.json();
-                return data;
-
-            } catch (error) {
-                console.error('Erro ao consultar CPF:', cpf, error);
-                // Retornamos um objeto de erro para ser exibido na tela
-                return { cpf: cpf, error: error.message };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro desconhecido no servidor.');
             }
+            return response.json();
         }
+
+        function displayResult(data) {
+            let clientNameHTML = data.clienteNome ? `<h3 class="text-xl font-semibold text-gray-800 mb-2">Cliente: ${data.clienteNome}</h3>` : '';
+            
+            let html = `
+                <div class="bg-white p-6 rounded-2xl shadow-md border-l-4 border-blue-500">
+                    <h2 class="text-2xl font-bold text-blue-800 mb-4">CPF: ${data.cpf}</h2>
+                    ${clientNameHTML}
+            `;
+
+            // --- Card para Ação Revisional ---
+            if (data.revisional) {
+                const p = data.revisional;
+                html += `
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h4 class="font-bold text-lg text-blue-700">Ação Revisional Encontrada</h4>
+                        <div class="mt-2 space-y-1 text-gray-700">
+                            <p><strong>Processo:</strong> ${p.numero || 'Não informado'}</p>
+                            <p><strong>Tipo:</strong> ${p.tipo || 'Não informado'}</p>
+                            <p><strong>Vara:</strong> ${p.vara || 'Não informado'}</p>
+                            <p><strong>Protocolo:</strong> ${p.protocolo || 'Não informado'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                 html += `<p class="mt-4 text-gray-600">Nenhuma ação revisional encontrada para este CPF.</p>`;
+            }
+
+            // --- Cards para Ações de Busca e Apreensão ---
+            if (data.buscaApreensao && data.buscaApreensao.length > 0) {
+                html += `<h4 class="font-bold text-lg text-red-700 mt-6 mb-2">Ações de Busca e Apreensão (${data.buscaApreensao.length})</h4>`;
+                data.buscaApreensao.forEach(p => {
+                    const mandadoClass = p.mandadoStatus.includes('ATENÇÃO') ? 'bg-red-100 border-red-300 text-red-800' : 'bg-green-100 border-green-300 text-green-800';
+                    html += `
+                        <div class="mt-3 p-4 bg-red-50 rounded-lg border border-red-200">
+                            <div class="space-y-1 text-gray-700">
+                                <p><strong>Processo:</strong> ${p.numero || 'Não informado'}</p>
+                                <p><strong>Tipo:</strong> ${p.tipo || 'Não informado'}</p>
+                                <p><strong>Vara:</strong> ${p.vara || 'Não informado'}</p>
+                                <p><strong>Protocolo:</strong> ${p.protocolo || 'Não informado'}</p>
+                                <div class="mt-3 p-2 rounded-md font-semibold ${mandadoClass}">
+                                    <p>${p.mandadoStatus}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += `<p class="mt-4 text-gray-600">Nenhuma ação de busca e apreensão encontrada.</p>`;
+            }
+
+            html += '</div>';
+            resultsDiv.innerHTML += html;
+        }
+        
+        function displayError(cpf, message) {
+            const html = `
+                <div class="bg-white p-6 rounded-2xl shadow-md border-l-4 border-yellow-500">
+                    <h2 class="text-2xl font-bold text-yellow-800 mb-2">Erro na Consulta</h2>
+                    <p><strong>CPF:</strong> ${cpf}</p>
+                    <p class="mt-2 text-red-600 font-semibold"><strong>Motivo:</strong> ${message}</p>
+                </div>
+            `;
+            resultsDiv.innerHTML += html;
+        }
+
     </script>
 </body>
 </html>
