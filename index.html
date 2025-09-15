@@ -85,7 +85,7 @@
         });
 
         async function fetchProcessData(cpf) {
-            const response = await fetch('http://192.168.1.16/consultar-cpf', {
+            const response = await fetch('http://localhost:3000/consultar-cpf', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cpf: cpf.trim() })
